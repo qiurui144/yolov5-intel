@@ -116,7 +116,8 @@ def select_device(device="", batch_size=0, newline=True):
     device = str(device).strip().lower().replace("cuda:", "").replace("none", "")  # to string, 'cuda:0' to '0'
     cpu = device == "cpu"
     mps = device == "mps"  # Apple Metal Performance Shaders (MPS)
-    if cpu or mps:
+    xpu = device == "xpu"
+    if cpu or mps or xpu:
         os.environ["CUDA_VISIBLE_DEVICES"] = "-1"  # force torch.cuda.is_available() = False
     elif device:  # non-cpu device requested
         os.environ["CUDA_VISIBLE_DEVICES"] = device  # set environment variable - must be before assert is_available()
@@ -137,10 +138,12 @@ def select_device(device="", batch_size=0, newline=True):
     elif mps and getattr(torch, "has_mps", False) and torch.backends.mps.is_available():  # prefer MPS if available
         s += "MPS\n"
         arg = "mps"
+    elif xpu and torch.xpu.is_available():
+        s += "XPU\n"
+        arg = "xpu"
     else:  # revert to CPU
         s += "CPU\n"
         arg = "cpu"
-
     if not newline:
         s = s.rstrip()
     LOGGER.info(s)
