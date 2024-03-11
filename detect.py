@@ -36,6 +36,7 @@ import sys
 from pathlib import Path
 
 import torch
+import intel_extension_for_pytorch as ipex
 
 FILE = Path(__file__).resolve()
 ROOT = FILE.parents[0]  # YOLOv5 root directory
@@ -113,6 +114,10 @@ def run(
     # Load model
     device = select_device(device)
     model = DetectMultiBackend(weights, device=device, dnn=dnn, data=data, fp16=half)
+    # Add for optimize model
+    optimizer = torch.optim.SGD(model.parameters(), 0.01, 0.937)
+    model, optimizer = ipex.optimize(model, optimizer=optimizer , dtype=torch.float)
+    # Add end
     stride, names, pt = model.stride, model.names, model.pt
     imgsz = check_img_size(imgsz, s=stride)  # check image size
 
