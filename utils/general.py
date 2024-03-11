@@ -31,6 +31,7 @@ import numpy as np
 import pandas as pd
 import pkg_resources as pkg
 import torch
+import intel_extension_for_pytorch as ipex
 import torchvision
 import yaml
 
@@ -594,7 +595,7 @@ def check_amp(model):
 
     prefix = colorstr("AMP: ")
     device = next(model.parameters()).device  # get model device
-    if device.type in ("cpu", "mps"):
+    if device.type in ("cpu", "mps", "xpu"):
         return False  # AMP only used on CUDA devices
     f = ROOT / "data" / "images" / "bus.jpg"  # image to check
     im = f if f.exists() else "https://ultralytics.com/images/bus.jpg" if check_online() else np.ones((640, 640, 3))
@@ -1027,8 +1028,10 @@ def non_max_suppression(
         prediction = prediction[0]  # select only inference output
 
     device = prediction.device
+    print(device)
     mps = "mps" in device.type  # Apple MPS
-    if mps:  # MPS not fully supported yet, convert tensors to CPU before NMS
+    xpu = "xpu" in device.type
+    if mps or xpu:  # MPS not fully supported yet, convert tensors to CPU before NMS
         prediction = prediction.cpu()
     bs = prediction.shape[0]  # batch size
     nc = prediction.shape[2] - nm - 5  # number of classes
@@ -1107,7 +1110,7 @@ def non_max_suppression(
                 i = i[iou.sum(1) > 1]  # require redundancy
 
         output[xi] = x[i]
-        if mps:
+        if mps or xpu:
             output[xi] = output[xi].to(device)
         if (time.time() - t) > time_limit:
             LOGGER.warning(f"WARNING ⚠️ NMS time limit {time_limit:.3f}s exceeded")
