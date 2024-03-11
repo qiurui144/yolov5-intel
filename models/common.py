@@ -18,6 +18,7 @@ import numpy as np
 import pandas as pd
 import requests
 import torch
+import intel_extension_for_pytorch as ipex
 import torch.nn as nn
 from PIL import Image
 from torch.cuda import amp
@@ -437,7 +438,8 @@ class Concat(nn.Module):
 
 class DetectMultiBackend(nn.Module):
     # YOLOv5 MultiBackend class for python inference on various backends
-    def __init__(self, weights="yolov5s.pt", device=torch.device("cpu"), dnn=False, data=None, fp16=False, fuse=True):
+    # fuse influnce performance
+    def __init__(self, weights="yolov5s.pt", device=torch.device("cpu"), dnn=False, data=None, fp16=False, fuse=False):
         """Initializes DetectMultiBackend with support for various inference backends, including PyTorch and ONNX."""
         #   PyTorch:              weights = *.pt
         #   TorchScript:                    *.torchscript
@@ -468,7 +470,10 @@ class DetectMultiBackend(nn.Module):
             stride = max(int(model.stride.max()), 32)  # model stride
             names = model.module.names if hasattr(model, "module") else model.names  # get class names
             model.half() if fp16 else model.float()
-            self.model = model  # explicitly assign for to(), cpu(), cuda(), half()
+            if device == "xpu":
+                self.model = model.to(device)  # explicitly assign for to(), cpu(), cuda(), half()
+            else:
+                self.model = model
         elif jit:  # TorchScript
             LOGGER.info(f"Loading {w} for TorchScript inference...")
             extra_files = {"config.txt": ""}  # model metadata
